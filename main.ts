@@ -1,13 +1,16 @@
 // The World in One Day — news-image-20261120
 // Grader entrypoint. The front page (entry.png) was rendered beforehand by
 // render-frontpage.py, which runs locally and is never executed by the grader.
-// This file only moves bytes: it reads the pre-rendered PNG from the repo
-// root, checks it is a real PNG under the 1 MiB limit, copies it into the
-// grader's output directory, and reads the copy back to prove the bytes are
-// identical. Node built-ins only (fs, path) — no external packages, so it
-// runs in the stdlib-only grader image.
-import { copyFileSync, existsSync, readFileSync, statSync } from "node:fs";
-import { join, resolve } from "node:path";
+// This file only moves bytes: it reads the pre-rendered PNG from the directory
+// this file lives in (import.meta.url, never process.cwd() — the grader runs
+// node /bot/main.ts from a CWD that is not /bot), checks it is a real PNG
+// under the 1 MiB limit, copies it into the grader's output directory, and
+// reads the copy back to prove the bytes are identical. Node built-ins only
+// (fs, path, url) — no external packages, so it runs in the stdlib-only
+// grader image.
+import { mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 const MAX_BYTES = 1024 * 1024;
@@ -17,9 +20,8 @@ function fail(message: string): never {
   process.exit(1);
 }
 
-const repoRoot = resolve(process.cwd());
-const sourcePath = join(repoRoot, "entry.png");
-if (!existsSync(sourcePath)) fail(`entry.png not found in ${repoRoot}`);
+const here = dirname(fileURLToPath(import.meta.url));
+const sourcePath = join(here, "entry.png");
 
 const source = readFileSync(sourcePath);
 if (source.length < 8 || !source.subarray(0, 8).equals(PNG_MAGIC)) {
@@ -29,10 +31,10 @@ if (source.length > MAX_BYTES) {
   fail(`entry.png is ${source.length} bytes, over the 1 MiB limit`);
 }
 
-const outDir = process.env.MAKEFUN_OUTPUT_DIR;
-if (!outDir) fail("MAKEFUN_OUTPUT_DIR is not set");
+const outDir = process.env.MAKEFUN_OUTPUT_DIR ?? "/output";
+mkdirSync(outDir, { recursive: true });
 const destPath = join(outDir, "entry.png");
-copyFileSync(sourcePath, destPath);
+writeFileSync(destPath, source);
 
 const copied = readFileSync(destPath);
 if (!copied.equals(source)) fail("copied entry.png differs from the source");
