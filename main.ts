@@ -26,3 +26,11 @@ if (!bytes.subarray(0, 8).equals(PNG_MAGIC)) {
   throw new Error("entry.png is not a PNG file");
 }
 writeFileSync(target, bytes);
+
+// Verify the copy landed intact: read it back and compare bytes.
+// A truncated or partial copy would otherwise score 0 at the gate
+// instead of reaching the judge, so fail loudly here instead.
+const written = readFileSync(target);
+if (!written.equals(bytes)) {
+  throw new Error("entry.png copy failed verification");
+}
